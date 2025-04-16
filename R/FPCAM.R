@@ -61,7 +61,7 @@ ui <- dashboardPage(
           h4("File Upload"),
           fileInput(
             "file1", 
-            label = tags$span(icon("file-excel"), "Upload File 1 (M)"),
+            label = tags$span(icon("file-excel"), "Upload File 1 (Marker exp)"),
             multiple = FALSE, 
             accept = c('.xlsx', '.xls'),
             width = "100%",
@@ -69,7 +69,7 @@ ui <- dashboardPage(
           ),
           fileInput(
             "file2", 
-            label = tags$span(icon("file-excel"), "Upload File 2 (m)"),
+            label = tags$span(icon("file-excel"), "Upload File 2 (Dictionary)"),
             multiple = FALSE, 
             accept = c('.xlsx', '.xls'),
             width = "100%",
@@ -127,13 +127,39 @@ ui <- dashboardPage(
       
       # Cell Annotation Tab
       tabItem(
-        tabName = "input",
+        tabName = "input",  # Make sure this matches your sidebar menu item
         tabsetPanel(
           id = 'main_tabs',
           tabPanel(
             "Instructions", 
-            includeMarkdown("./markdown/instructions.md")
+            includeMarkdown("./markdown/instructions.md"),
+            tags$hr(),
+            tags$div(
+              style = "padding: 10px;",
+              tags$h4("📥 Download Example Data (Click buttons below):"),
+              
+              tags$div(
+                style = "margin-top: 10px;",
+                tags$p("🔹 Dictionary Example:"),
+                downloadButton(
+                  outputId = "download_dictionary",
+                  label = "Download Dictionary",
+                  style = "margin-top: 10px;"
+                )
+              ),
+              
+              tags$div(
+                style = "margin-top: 20px;",
+                tags$p("🔹 Expression Example:"),
+                downloadButton(
+                  outputId = "download_expression_data",
+                  label = "Download Marker Expression",
+                  style = "margin-top: 10px;"
+                )
+              )
+            )
           ),
+          
           tabPanel(
             "Result",
             tableOutput("resultTable"),
@@ -281,7 +307,7 @@ ui <- dashboardPage(
                   style = "font-size: 16px; text-align: center;"
                 ),
                 tags$p(
-                  "Developed by: Guo Jun Liu、Yan Shi",
+                  "Developed by: Guojun Liu、Yan Shi",
                   style = "font-size: 14px; text-align: center;"
                 ),
                 tags$p(
@@ -306,6 +332,36 @@ server <- function(input, output, session) {
   # 定义响应式变量以存储 result_data
   result_data <- reactiveVal(NULL)
   
+  # Server logic for the download buttons
+    output$download_dictionary <- downloadHandler(
+      filename = function() {
+        "Dictionary_example.xlsx"
+      },
+      content = function(file) {
+        # Copy the file from www folder to the requested location
+        file.copy(
+          from = "./www/Dictionary_example.xlsx", 
+          to = file,
+          overwrite = TRUE
+        )
+      },
+    )
+    
+    output$download_expression_data <- downloadHandler(
+      filename = function() {
+        "marker_expression_example.xlsx"
+      },
+      content = function(file) {
+        # Copy the file from www folder to the requested location
+        file.copy(
+          from = "./www/marker_expression_example.xlsx", 
+          to = file,
+          overwrite = TRUE
+        )
+      },
+    )
+  
+  
   
   observeEvent(input$run, {
     req(input$file1, input$file2)  # 确保两个文件都已上传
@@ -329,7 +385,7 @@ server <- function(input, output, session) {
         # 设置临时文件夹为工作目录（可选）
         setwd(temp_folder)
         rm(list = ls())
-        Marker <- read_excel(file.path(temp_folder, "Marker_expression_test.xlsx"), 
+        Marker <- read_excel(file.path(temp_folder, "Marker_expression.xlsx"), 
                              sheet = 1, col_names = TRUE, col_types = NULL, na = "", skip = 0)
         # 初始化一个向量来存储每列的比值
         ratios <- list()
@@ -347,7 +403,7 @@ server <- function(input, output, session) {
           ratios[[i]] <- column_ratios
         }
         
-        
+        incProgress(0.1)  
         # ### 手动验证
         # col_name <- paste0("cluster","_", i/2-1, "_", "Markergene")
         # gene <- Marker[2,col_name]
@@ -367,6 +423,7 @@ server <- function(input, output, session) {
             # Marker[,i]
           }
         }
+        incProgress(0.2)
         # Marker[,1]
         # Express_var <- paste0("cluster","_", 4/2-1, "_", "Express")
         # eval(Express_var)
@@ -395,7 +452,7 @@ server <- function(input, output, session) {
           # multi_dimensional_list[[i]] <- inner_list
         }
         
-        
+        incProgress(0.3)  
         # 测试从列表打印基因和表达量
         # print(inner_list)
         # inner_list[[2]][[1]][[1]][1]
@@ -407,7 +464,7 @@ server <- function(input, output, session) {
         ###################################################################
         ## Script name: 比对
         ###################################################################
-        db <- read_excel(file.path(temp_folder, "marker_database.xlsx"), 
+        db <- read_excel(file.path(temp_folder, "Dictionary.xlsx"), 
                          sheet = 1, col_names = TRUE, col_types = NULL, na = "", skip = 0)
         a <- unlist(unique(db$cell_cluster))
         # 先创建列再创建行
@@ -429,6 +486,7 @@ server <- function(input, output, session) {
           }
         }
         write.csv(db, file = file.path(temp_folder, "Cluster.csv"), row.names = FALSE)
+        incProgress(0.4)  
         ###################################################################
         ## Script name: Calculate the cellular origin of clusters.
         ###################################################################
@@ -456,7 +514,7 @@ server <- function(input, output, session) {
           print(paste0("The cellular origin of ",tmp," is ",a))
         }
         write.csv(result, file = file.path(temp_folder, "result.csv"), row.names = FALSE, quote = TRUE)
-        
+        incProgress(0.5)  
         ###################################################################
         ## Script name: 挑出最高和次高值
         ###################################################################
@@ -484,7 +542,7 @@ server <- function(input, output, session) {
         }
         # 将结果写入CSV文件
         write.csv(result, file = file.path(temp_folder, "result_max_second_values_per_column.csv"), row.names = FALSE)
-        
+        incProgress(0.6)  
         ###################################################################
         ## Script name: 计算delta制表
         ###################################################################
@@ -574,7 +632,7 @@ server <- function(input, output, session) {
             result_updated0
           })                   
           
-          
+            
           
           
         } else {
@@ -582,8 +640,9 @@ server <- function(input, output, session) {
         }
       }
     })
-    
+    incProgress(0.8)
     incProgress(1 / total_steps)
+    
     
     output$downloadData <- downloadHandler(
       filename = function() {
@@ -657,7 +716,7 @@ server <- function(input, output, session) {
       ref <- celldex::HumanPrimaryCellAtlasData()
       ref <- ref[,grepl('DC|B_cell|Neutrophils|T_cells|Monocyte|Erythroblast|Macrophage|NK_cell|Platelets|Myelocyte', ref$label.main)]
       
-      pbmc_counts <- GetAssayData(pbmc.seurat.filtered, slot = 'counts')
+      pbmc_counts <- GetAssayData(pbmc.seurat.filtered, layer = 'counts')
       pred <- SingleR(test = pbmc_counts, ref = ref, labels = ref$label.main)
       
       # Add SingleR labels to Seurat object
@@ -699,7 +758,7 @@ server <- function(input, output, session) {
       ref <- celldex::HumanPrimaryCellAtlasData()
       ref <- ref[,grepl('DC|B_cell|Neutrophils|T_cells|Monocyte|Erythroblast|Macrophage|NK_cell|Platelets|Myelocyte', ref$label.main)]
       
-      pbmc_counts <- GetAssayData(pbmc.seurat.filtered, slot = 'counts')
+      pbmc_counts <- GetAssayData(pbmc.seurat.filtered, layer = 'counts')
       pred <- SingleR(test = pbmc_counts, ref = ref, labels = ref$label.main)
       
       # Store results
@@ -738,7 +797,7 @@ server <- function(input, output, session) {
       ref <- celldex::HumanPrimaryCellAtlasData()
       ref <- ref[,grepl('DC|B_cell|Neutrophils|T_cells|Monocyte|Erythroblast|Macrophage|NK_cell|Platelets|Myelocyte', ref$label.main)]
       
-      pbmc_counts <- GetAssayData(pbmc.seurat.filtered, slot = 'counts')
+      pbmc_counts <- GetAssayData(pbmc.seurat.filtered, layer = 'counts')
       pred <- SingleR(test = pbmc_counts, ref = ref, labels = ref$label.main)
       
       # Store results
@@ -750,26 +809,58 @@ server <- function(input, output, session) {
   # 生成UMAP图
   output$umap_plot <- renderPlot({
     req(umap_values$seurat_obj)
-    DimPlot(umap_values$seurat_obj, 
-            reduction = 'umap', 
-            group.by = 'singleR.labels',
-            label = TRUE,
-            label.size = 4,
-            repel = TRUE) +
+    DimPlot(
+      umap_values$seurat_obj,
+      reduction = 'umap',
+      group.by = 'singleR.labels',
+      label = TRUE,          # 显示 cluster 标签
+      label.size = 6,        # 增大 cluster 标签字体（默认 4）
+      repel = TRUE           # 防止标签重叠
+    ) +
+      ggtitle("UMAP visualization with SingleR annotations") +
+      labs(x = "UMAP-1", y = "UMAP-2") +  # 自定义坐标轴名称
       theme_classic() +
-      ggtitle("UMAP visualization with SingleR annotations")
+      theme(
+        plot.title = element_text(size = 18, face = "bold", hjust = 0.5),  # 主标题居中
+        axis.title = element_text(size = 16, face = "bold"),  # 坐标轴标题
+        axis.text = element_text(size = 16),                 # 坐标轴刻度数字
+        legend.title = element_text(size = 14),              # 图例标题
+        legend.text = element_text(size = 12)                 # 图例内容
+      )
   })
   
   # 生成得分热图
   output$score_heatmap <- renderPlot({
     req(heatmap_values$singleR_pred)
-    plotScoreHeatmap(heatmap_values$singleR_pred)
+    # 直接修改 plotScoreHeatmap 函数调用，如果函数接受字体大小参数
+    plotScoreHeatmap(
+      heatmap_values$singleR_pred,
+      fontsize = 14,           # 如果函数有这个参数
+      fontsize_row = 14,       # 行标签字体大小
+      fontsize_col = 14,       # 列标签字体大小
+      main = "Score Heatmap",  # 设置标题
+      cexRow = 1.5,            # 行标签字体大小系数
+      cexCol = 1.5             # 列标签字体大小系数
+    )
   })
   
   # 生成Delta分布图
   output$delta_plot <- renderPlot({
     req(delta_values$singleR_pred)
-    plotDeltaDistribution(delta_values$singleR_pred)
+    # 如果 plotDeltaDistribution 是基于 ggplot2 的
+    p <- plotDeltaDistribution(delta_values$singleR_pred)
+    p + theme(
+      axis.title = element_text(size = 16, face = "bold"),
+      axis.text = element_text(size = 16),
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+      legend.title = element_text(size = 16),
+      legend.text = element_text(size = 14),
+      strip.text = element_text(size = 14, face = "bold"),  # 分面标签文本
+      panel.grid.major = element_line(size = 0.5),          # 增加网格线粗细
+      panel.grid.minor = element_line(size = 0.25)
+    ) +
+      labs(x = "Delta Value", y = "Delta med") +
+      guides(color = guide_legend(override.aes = list(size = 3)))  # 增加图例点大小
   })
   
   # UMAP图下载功能
@@ -785,11 +876,18 @@ server <- function(input, output, session) {
                    reduction = 'umap', 
                    group.by = 'singleR.labels',
                    label = TRUE,
-                   label.size = 4,
+                   label.size = 6,
                    repel = TRUE) +
         theme_classic() +
-        ggtitle("UMAP visualization with SingleR annotations")
-      
+        labs(x = "UMAP-1", y = "UMAP-2") +
+        ggtitle("UMAP visualization with SingleR annotations")+
+        theme(
+          plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+          axis.title = element_text(size = 16, face = "bold"),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 14),
+          legend.text = element_text(size = 12)
+        )
       # 使用ggsave保存图像
       ggsave(file, plot = p, width = 10, height = 8, dpi = 300)
     }
@@ -804,7 +902,15 @@ server <- function(input, output, session) {
       req(heatmap_values$singleR_pred)
       
       # 创建热图图
-      p_heatmap <- plotScoreHeatmap(heatmap_values$singleR_pred)
+      p_heatmap <- plotScoreHeatmap(
+        heatmap_values$singleR_pred,
+        fontsize = 14,
+        fontsize_row = 14,
+        fontsize_col = 14,
+        cexRow = 1.5,
+        cexCol = 1.5,
+        main = "Score Heatmap"
+      )
       
       # 使用ggsave保存图像
       ggsave(file, plot = p_heatmap, width = 10, height = 8, dpi = 300)
@@ -817,17 +923,26 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       req(delta_values$singleR_pred)
+      # 构造图对象
+      p <- plotDeltaDistribution(delta_values$singleR_pred) +
+        theme(
+          axis.title = element_text(size = 16, face = "bold"),
+          axis.text = element_text(size = 16),
+          plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 14),
+          strip.text = element_text(size = 14, face = "bold"),
+          panel.grid.major = element_line(size = 0.5),
+          panel.grid.minor = element_line(size = 0.25)
+        ) +
+        labs(x = "Delta Value", y = "Density") +
+        guides(color = guide_legend(override.aes = list(size = 3)))
       
-      # 打开图形设备
-      png(file, width = 3000, height = 2400, res = 300)
-      
-      # 绘制Delta分布图
-      plotDeltaDistribution(delta_values$singleR_pred)
-      
-      # 关闭图形设备
-      dev.off()
+      # 保存图
+      ggsave(file, plot = p, width = 10, height = 8, dpi = 300)
     }
   )
+      
   
   # 触发数据处理
   observeEvent(input$run_umap_analysis, {
